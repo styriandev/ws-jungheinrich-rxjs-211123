@@ -38,6 +38,6 @@ npm run start
 * [Contextual Template States & Error Handling](./exercises/contextual-template-states-error-handling.md)
 * [Side Effects, Multicasting, Derived State & Subscription Handling](./exercises/side-effects-derived-state-subscriptions.md)
 * [Custom State Management Solution](./exercises/custom-state-management.md)
-* [TBD: Rate Limiting & Scheduling]()
-* [TBD: Marble & other rxjs Testing]
+* [TBD: Rate Limiting & Scheduling](./exercises/rate-limiting.md)
+* [TBD: Marble & other rxjs Testing](./exercises/marble-testing.md)
 
