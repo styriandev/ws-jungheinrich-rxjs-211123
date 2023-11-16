@@ -32,10 +32,12 @@ npm run start
 
 ## Exercises
 
-* [Higher Order Observables - switchMap]()
-* [Higher Order Observables - exhaustMap]()
-* [Higher Order Observables - concatMap]()
-* [Higher Order Observables - mergeMap]()
-* [Higher Order Observables - groupBy]()
-* [Error Handling]()
-* [Error Handling]()
+* [Higher Order Observables - switchMap: Data Fetching](./exercises/data-fetching-switchMap.md)
+* [Higher Order Observables - exhaustMap: Infinite Scroller](./exercises/infinite-scroller-exhaustmap.md)
+* [Higher Order Observables - groupBy & mergeMap & exhaustMap: List Updates with loading states](./exercises/list-updates-with-mergemap-groupBy.md)
+* [Contextual Template States & Error Handling](./exercises/contextual-template-states-error-handling.md)
+* [Side Effects, Multicasting, Derived State & Subscription Handling](./exercises/side-effects-derived-state-subscriptions.md)
+* [Custom State Management Solution](./exercises/custom-state-management.md)
+* [TBD: Rate Limiting & Scheduling]()
+* [TBD: Marble & other rxjs Testing]
+

@@ -36,7 +36,8 @@ export class ElementVisibilityDirective {
               scrollTop + clientHeight + 100 >=
               elementRef.nativeElement.offsetTop
             );
-          })
+          }),
+          filter(Boolean)
         )
         .subscribe(this.signals.visible);
     }
