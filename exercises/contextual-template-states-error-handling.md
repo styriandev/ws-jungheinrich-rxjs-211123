@@ -11,12 +11,10 @@ The goal of this exercise is to learn how to make use of contextual template sta
 application a better experience consuming it. On top of that you will learn how to implement contextual template states
 in a very developer friendly way.
 
-## MovieSearchPage
-
 In this exercise we want to make use of the `rxLet` directive in order to provide our users contextual state information
 derived from network request we perform to receive values for the users search input.
 
-### Initial Suspense State
+## Initial Suspense State
 
 As a first step, let's handle the suspense state of the template (the loader).
 The initial suspense state is already in place with the `*ngIf async hack`.
@@ -54,7 +52,7 @@ You probably want to open your `devtools => Network` tab and hit `disable cache`
   ng serve
 ```
 
-### Suspense on new search: TemplateTrigger
+## Suspense on new search: TemplateTrigger
 
 We still miss a crucial feature for our `suspense` state to be perfect. When performing a new search, we want to show
 the user again the `suspense` template.
@@ -104,7 +102,7 @@ displayed correctly. You probably want to open your `devtools => Network` tab an
 ng serve
 ```
 
-### Error Template
+## Error Template
 
 The only thing left is having a dedicated `error` template.
 
