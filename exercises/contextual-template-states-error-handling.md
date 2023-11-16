@@ -24,8 +24,6 @@ The initial suspense state is already in place with the `*ngIf async hack`.
 Start by introducing the `rxLet` Directive to your template in favor of `*ngIf`.   
 You can import the `RxLet` from `'@rx-angular/template/let'`.
 
-For the sake of consistency rename the currently in place `ng-template #loader` to `suspense`.
-
 Be aware that you need to bind the `movie$` directly to the `rxLet` and get rid of the `async` pipe as well.
 
 <details>
@@ -163,8 +161,7 @@ In order to still be able to show the error template, you need to manually set i
 
 // movie-search-page.component.ts
 
-readonly
-error$ = new Subject<void>();
+readonly error$ = new Subject<void>();
 
 movies$ = this.activatedRoute.params.pipe(
   switchMap((params) => {
@@ -195,6 +192,37 @@ Don't forget to bind the trigger in the template.
 
 Cool, raise the error again and see if it gets logged into the console as well as the error template is shown.
 
+## Retry before showing the error template
+
+Sometimes processes or requests can be retried in order to still get a valid result.
+Try to also make use of the `retry` operator so that your failed request is repeated twice before showing the actual error template.
+
+Play around with different configurations, you probably want to use `delay` as well as `count`.
+
+<details>
+  <summary>retry before giving up</summary>
+
+```ts
+
+// movie-search-page.component.ts
+
+import { retry } from 'rxjs';
+
+
+movies$ = this.activatedRoute.params.pipe(
+  switchMap((params) => {
+    return this.movieService.searchMovies(params['query']);
+  }),
+  retry({ delay: 1000, count: 2 }),
+  catchError(e => {
+    this.error$.next();
+    console.error('an error occurred when searching', e);
+    return NEVER; // return NEVER, as we don't want to send data to the let directive
+  })
+);
+
+```
+
 ## Restore Functionality on error
 
 You have probably noticed that search is not usable after an error occurred. This is because an Observable cannot recover from
@@ -202,11 +230,15 @@ an error state on its own. It needs manual assistance in order to reset the obse
 
 The only actual option we have is to give the stream a replacement observable to continue. Right now, our replacement stream is `NEVER`.
 
-Let's change that and instead of returning `NEVER` we just return `this.movies$`, which essentially returns yet another cold version of the 
-stream we are already listening to.
+Let's change that and instead of returning `NEVER` we need to return our original stream again.
+
+This will be a tricky one, as the `activatedRoute.params` is a `BehaviorSubject`, thus always emitting a value on subscription.
+You will need to find a way to not run into an infinite loop, so be careful :)
 
 <details>
-  <summary>restore functionality on catchError</summary>
+  <summary>restore functionality on catchError -> INFINITE LOOP</summary>
+
+> Be careful, you end up in an infinite loop with this
 
 ```ts
 
@@ -217,12 +249,51 @@ movies$ = this.activatedRoute.params.pipe(
     this.supsense$.next();
     return this.movieService.searchMovies(params['query']);
   }),
+  retry({ delay: 1000, count: 2 }),
   catchError(e => {
     this.error$.next();
     console.error('an error occurred when searching', e);
     return this.movies$; // we return the stream again to keep on listening to activatedRoute params and do the search
   })
 );
+
+```
+
+</details>
+
+In order to fix that issue, you can create a function that creates the search movies stream. As a parameter it should take
+a variable that indicates if you want to skip the first result of the `params` observable or not.
+Initially you want to have it repeat the latest value, on consequent calls you don't want that.
+
+Use the `skip` operator in order to configure if you like skip the first emission or not. On `catchError` you can
+recursively call the observable creation function again instead of returning a hot stream.
+
+<details>
+  <summary>restore functionality on catchError -> INFINITE LOOP</summary>
+
+> Be careful, you end up in an infinite loop with this
+
+```ts
+
+// movie-search-page.component.ts
+
+private searchMovies = (hot = true) => {
+  return this.activatedRoute.params.pipe(
+    skip(hot ? 0 : 1),
+    switchMap((params) => {
+      this.suspense$.next();
+      return this.movieService.searchMovies(params['query']);
+    }),
+    retry({ count: 2, delay: 1000 }),
+    catchError(e => {
+      this.error$.next();
+      console.error('an error occurred when searching', e);
+      return this.searchMovies(false);
+    })
+  );
+}
+
+movies$ = this.searchMovies();
 
 ```
 
