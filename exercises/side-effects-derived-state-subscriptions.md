@@ -2,12 +2,14 @@
 
 # Goal
 
+The goal of this exercise is to get familiar with the very basic concepts of state management with rxjs: 
+
 * join operators
 * multicasting
 * side effects
 * subscription handling
 
-## Introduce Side Effect
+## Side Effect: Alert on update completion
 
 We want to show a notification to the user whenever the favorite state was successfully updated. Or in other words,
 whenever the MovieService responds with a result after the user wanted to change the favorite state of a Movie, we want
@@ -32,7 +34,7 @@ falsy for the given movie.id.
 
 this.toggleFavorite$.pipe(
   /* groupBy, mergeMap, exhaustMap */
-  this.state.select('favoritesLoading').pipe(
+  this.favoritesLoadingMap$.pipe(
     filter(favoritesLoading => !favoritesLoading[movie.id]),
     tap(() => alert('movie updated')),
     take(1) // <- this is important, otherwise exhaustMap never stops blocking events

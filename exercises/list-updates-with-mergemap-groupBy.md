@@ -2,7 +2,8 @@
 
 # Goal
 
-We want to display and manipulate the `favorite` state of a movie in the `MovieListPageComponent`.
+We want to display and manipulate the `favorite` state of a movie in the `MovieListPageComponent`. On top of that, we want to display individual
+loading indicators per item currently updating.
 
 ## Fetch Favorite Movies
 

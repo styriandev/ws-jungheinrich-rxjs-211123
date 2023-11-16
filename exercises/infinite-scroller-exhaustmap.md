@@ -1,11 +1,11 @@
-# ExhaustMap Exercise
+# Infinite Scrolling with exhaustMap
 
 # Goal
 
 We want to deepen our knowledge about higher order observables, by getting familiar with the `exhaustMap` operator.
 We will use it in order to implement an infinite scroll solution that paginates http calls on scroll events.
 
-## Infinite Scrolling with exhaustMap
+## Infinite Scrolling
 
 Our trigger is already implemented and ready to use. The `ElementVisibilityDirective` emits an event everytime it
 is visible to the user, indicating we've reached the bottom of the list and we should start fetching a new page.

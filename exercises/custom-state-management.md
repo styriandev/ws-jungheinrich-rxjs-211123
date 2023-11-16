@@ -10,8 +10,6 @@ Combination of all learned concepts to create an abstract custom state managemen
 * side effects
 * subscription handling
 
-## Custom Reactive State Management
-
 Up until now, we've treated state as single observable slices. While it is effective for now, it won't be able to scale and is hard to maintain.
 We have to manually maintain subscriptions, have high refactoring efforts when changing the behavior of single slices & you can't interact imperatively with your state, to name a few issues.
 
@@ -26,6 +24,8 @@ In a perfect world, our reactive state management is:
 * is able to manage side effects
 
 And this is exactly what we want to build now (as a baby version of course). You could call it BehaviorSubject on steroids.
+
+## Custom Reactive State Management
 
 Take a look at the following interface, this is what we are going to build now. It describes the interface of a generic local state
 class that acts as a reactive key-value store.
