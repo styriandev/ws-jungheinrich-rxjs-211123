@@ -3,7 +3,7 @@
 In this exercise we will get to know different techniques to maintain contextual states provided by asynchronous data
 structures in the template.
 
-![img.png](contextual-template-states/img.png)
+![img.png](images/contextual-template-states.png)
 
 ## Goal
 
