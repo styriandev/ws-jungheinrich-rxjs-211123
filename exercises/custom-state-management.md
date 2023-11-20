@@ -318,6 +318,87 @@ class ReactiveState<T> {
 
 Congratulations, you have successfully implemented a baby-version of a really useful state management tool that will make your life easier :).
 
+
+<details>
+  <summary>Full Implementation</summary>
+
+
+```ts
+// state.service.ts
+
+
+class ReactiveState<T> {
+  
+  private slices$ = new Subject<Partial<T> | Observable<Partial<T>>>();
+  
+  private state: Partial<T> = {};
+  private state$ = connectable(this.slices$.pipe(
+    map(coerceObservable),
+    mergeAll(),
+    scan((state, slice) => ({
+      ...state,
+      ...slice
+    }), {} as T),
+  ), {
+    connector: () => new ReplaySubject(1),
+  });
+  
+  private effects$ = new Subject<Observable<unknown>>();
+  
+  constructor() {
+    const s = this.state$.connect();
+    
+    inject(DestroyRef).onDestroy(() => s.unsubscribe());
+    this.effects$.pipe(mergeAll(), takeUntilDestroyed()).subscribe();
+  }
+  
+  get(): Partial<T>;
+  get<K extends keyof T>(key: K): T[K];
+  get<K extends keyof T>(k?: K): Partial<T> | T[K] {
+    if (k) {
+      return this.state[k];
+    }
+    return this.state;
+  }
+  
+  select(): Observable<T>;
+  select<K extends keyof T>(key: K): Observable<T[K]>;
+  select<R>(op: OperatorFunction<T, R>): Observable<R>;
+  select<R>(sliceOrKey?: OperatorFunction<T, R>) {
+    if (!sliceOrKey) {
+      return this.state$;
+    } else if (typeof sliceOrKey === 'function') {
+      return this.state$.pipe(sliceOrKey);
+    }
+    return this.state$.pipe(map(state => state[sliceOrKey]));
+  }
+  
+  set(slice: Partial<T>) {
+    this.slices$.next(slice);
+  }
+  
+  connect(slice$: Observable<Partial<T>>)
+  connect<K extends keyof T>(key: K, slice$: Observable<T[K]>)
+  connect<K extends keyof T>(keyOrSlice: K | Observable<Partial<T>>, keySlice$?: Observable<T[K]>) {
+    if (keySlice$) {
+      this.slices$.next(keySlice$.pipe(
+        map(keySlice => ({ [keyOrSlice as K]: keySlice } as unknown as Partial<T>))
+      ));
+    } else {
+      this.slices$.next(keyOrSlice as Observable<Partial<T>>);
+    }
+  }
+  
+  hold(effect$: Observable<unknown>) {
+    this.effects$.next(effect$);
+  }
+
+}
+
+```
+
+</details>
+
 ### Application
 
 As your abstract state management solution is now ready to be used, go ahead and refactor the `MovieListPageComponent` to use your implementation.
