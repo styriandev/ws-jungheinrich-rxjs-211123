@@ -6,7 +6,60 @@
   }
 }
 
+.favorite-area {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  fast-svg {
+    display: block;
+    &::ng-deep {
+      svg {
+        width: 25px;
+        height: 25px;
+      }
+    }
+  }
+
+  .loading {
+    transform: scale(1);
+    animation: pulse 500ms infinite;
+    &::ng-deep {
+      svg {
+        color: var(--palette-primary-main);
+      }
+    }
+  }
+
+  .favorite-indicator {
+    border: unset;
+    background: transparent;
+    cursor: pointer;
+
+    &:hover {
+      fast-svg {
+        color: rgba(255, 0, 0, .5);
+      }
+    }
+
+    fast-svg {
+      color: rgba(25, 25, 25, .3);
+    }
+
+    &.is-favorite {
+      fast-svg {
+        color: red;
+      }
+    }
+  }
+}
+
 .movie-card {
+  position: relative;
   transition: box-shadow .15s cubic-bezier(.4,0,.2,1) 0s,
     transform .15s cubic-bezier(.4,0,.2,1) 0s;
 
@@ -32,4 +85,21 @@
 
 .movie-card-title {
   font-size: 2rem;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.7);
+  }
+
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(0, 0, 0, 0);
+  }
+
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
 }

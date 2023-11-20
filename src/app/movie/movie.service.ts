@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { map, Observable } from 'rxjs';
+import { insert, remove } from '@rx-angular/cdk/transformations';
+import { map, Observable, tap, timer } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { TMDBMovieCreditsModel } from '../shared/model/movie-credits.model';
 import { TMDBMovieDetailsModel } from '../shared/model/movie-details.model';
@@ -24,7 +25,7 @@ export class MovieService {
 
   getMoviesByGenre(
     genre: TMDBMovieGenreModel['id'],
-    page: string = '1',
+    page = 1,
     sortBy = 'popularity.desc'
   ): Observable<TMDBMovieModel[]> {
     return this.httpClient
@@ -61,7 +62,7 @@ export class MovieService {
 
   getMovieList(
     category: string,
-    page: string = '1',
+    page: number = 1,
     sortBy = 'popularity.desc'
   ): Observable<TMDBMovieModel[]> {
     const { tmdbBaseUrl: baseUrl } = environment;
@@ -81,7 +82,42 @@ export class MovieService {
           params: { query },
         }
       )
-      .pipe(map(({ results }) => results));
+      .pipe(
+        tap(() => {
+          if (query === 'throwError') {
+            throw new Error('you searched for throwError, i am sorry');
+          }
+        }),
+        map(({ results }) => results)
+      );
+  }
+
+  getFavoriteMovies(): Observable<MovieModel[]> {
+    console.log('requesting getFavoriteMovies')
+    return timer(1500).pipe(
+      map(() => this.getFavorites()),
+      tap(() => console.log('requested getFavoriteMovies'))
+    )
+  }
+
+  toggleFavorite(movie: MovieModel): Observable<boolean> {
+    console.log('requesting toggleFavorite')
+    return timer(1500).pipe(
+      map(() => {
+        console.log('requested toggleFavorite')
+        if (this.getFavorites().find(f => f.id === movie.id)) {
+          this.setFavorites(
+            remove(this.getFavorites(), movie, 'id')
+          );
+          return false;
+        } else {
+          this.setFavorites(
+            insert(this.getFavorites(), movie as MovieModel & { comment: string })
+          );
+          return true;
+        }
+      })
+    )
   }
 
   getFavorites(): (MovieModel & { comment: string })[] {

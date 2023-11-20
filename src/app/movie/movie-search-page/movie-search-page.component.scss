@@ -1,0 +1,8 @@
+fast-svg[name="error"] {
+  &::ng-deep {
+    svg {
+      width: 350px;
+      height: 350px;
+    }
+  }
+}
