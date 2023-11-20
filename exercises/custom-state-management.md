@@ -20,7 +20,7 @@ In a perfect world, our reactive state management is:
 * easy to construct
 * lazy by default -> doesn't require an initial state
 * read & write operations reactive as well as imperative
-* easy to derive state from store`d slices
+* easy to derive state from stored slices
 * is able to manage side effects
 
 And this is exactly what we want to build now (as a baby version of course). You could call it BehaviorSubject on steroids.
@@ -32,7 +32,7 @@ class that acts as a reactive key-value store.
 
 ```ts
 
-type LocalState<T> = {
+type ReactiveState<T> = {
   
   // imperative
   // read
@@ -45,13 +45,14 @@ type LocalState<T> = {
   // read
   select(): Observable<T>;
   select<K extends keyof T>(key: K): Observable<T[K]>;
+  select<R>(op: OperatorFunction<T, R>): Observable<R>;
   
   // write
   connect(slice$: Observable<Partial<T>>)
   connect<K extends keyof T>(key: K, slice$: Observable<T[K]>)
   
   // side-effects
-  register(effect$: Observable<unknown>): void;
+  hold(effect$: Observable<unknown>): void;
 
 }
 ```
@@ -82,6 +83,7 @@ export class StateService<T> {
 Now we can start building the reactive core and the subscription management.
 
 We need:
+
 * a property `state: T` for the imperative access
 * a Subject `slices$: Subject<Observable<Partial<T>> | Partial<T>>`
   * --> this is where inputs (single slices via connect & set) from the outside land
@@ -103,7 +105,7 @@ Don't forget to use `takeUntilDestroyed` to unsubscribe on destruction.
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { coerceObservable } from '@rx-angular/cdk/coercing';
 
-class LocalState<T> {
+class ReactiveState<T> {
   
   private slices$ = new Subject<Partial<T> | Observable<Partial<T>>>();
   
@@ -117,15 +119,9 @@ class LocalState<T> {
     scan((state, slice) => ({
       ...state,
       ...slice
-    }), {} as T)
+    }), {} as T),
+    tap(s => state = s)
   );
-  
-  constructor() {
-    this.state$.pipe(
-      takeUntilDestroyed()
-    ).subscribe(state => this.state = state)
-  
-  }
 }
 ```
 
@@ -140,7 +136,7 @@ Now that the reactive is core is here, we can use it to expose our data imperati
 
 ```ts
 // state.service.ts
-class LocalState<T> {
+class ReactiveState<T> {
   
   select(): Observable<T>;
   select<K extends keyof T>(key: K): Observable<T[K]>;
@@ -164,7 +160,7 @@ class LocalState<T> {
 ```ts
 // state.service.ts
 
-class LocalState<T> {
+class ReactiveState<T> {
   
   get(): Partial<T>;
   get<K extends keyof T>(key: K): T[K];
@@ -190,7 +186,7 @@ Now that the reactive is core is here, we can use it to feed it with our users i
 ```ts
 // state.service.ts
 
-class LocalState<T> {
+class ReactiveState<T> {
   
   connect(slice$: Observable<Partial<T>>)
   connect<K extends keyof T>(key: K, slice$: Observable<T[K]>)
@@ -215,7 +211,7 @@ class LocalState<T> {
 ```ts
 // state.service.ts
 
-class LocalState<T> {
+class ReactiveState<T> {
   
   set(slice: Partial<T>) {
     this.slices$.next(slice);
@@ -227,13 +223,22 @@ class LocalState<T> {
 
 ### Side Effects
 
+The side effect handling happens completely separated from the state logic.
+To handle observable side effects, we need another higher order observable that resembles
+a stream of all side effect streams, `effect$: Subject<Observable<unknown>>`.
+
+We also want to implement a public function `hold` that accepts `Observable<unknown>` and feeds
+`effect$` with values.
+
+The last part is to implement the execution of the side effects by merging all effects.
+
 <details>
   <summary>Side Effects Handling</summary>
 
 ```ts
 // state.service.ts
 
-class LocalState<T> {
+class ReactiveState<T> {
   
   private effects$ = new Subject<Observable<unknown>>();
   
@@ -242,10 +247,70 @@ class LocalState<T> {
     this.effects$.pipe(mergeAll(), takeUntilDestroyed()).subscribe()
   }
   
-  register(effect$: Observable<unknown>) {
+  hold(effect$: Observable<unknown>) {
     this.effects$.next(effect$);
   }
 
+}
+```
+
+</details>
+
+### Multicasting: Choose your fighter
+
+Our state is still cold, so let's make it hot & replaying. Introduce any form multicasting + replayability you want.
+
+<details>
+  <summary>Multicasted State</summary>
+
+```ts
+// state.service.ts
+
+class ReactiveState<T> {
+  private state$ = connectable(
+    this.slices$.pipe(
+      map(coerceObservable),
+      mergeAll(),
+      scan((state, slice) => ({
+        ...state,
+        ...slice
+      }), {} as T),
+    ),
+    {
+      connector: () => new ReplaySubject(1),
+    }
+  );
+  
+  constructor() {
+    this.state$.connect();
+  }
+}
+```
+
+</details>
+
+### Cleanup
+
+The final missing piece is to clean up whenever our local service is destroyed. I suggest injecting the `DestroyRef` to use
+it's `onDestroy` hook to unsubscribe from the state subscription.
+
+<details>
+  <summary>Multicasted State</summary>
+
+```ts
+// state.service.ts
+
+import { DestroyRef } from '@angular/core';
+
+class ReactiveState<T> {
+  
+  constructor() {
+    const stateSub = this.state$.connect();
+    
+    inject(DestroyRef).onDestroy(() => {
+      stateSub.unsubscribe();
+    })
+  }
 }
 ```
 
@@ -255,55 +320,225 @@ Congratulations, you have successfully implemented a baby-version of a really us
 
 ### Application
 
-<details>
-  <summary>Side Effects Handling</summary>
+As your abstract state management solution is now ready to be used, go ahead and refactor the `MovieListPageComponent` to use your implementation.
+
+#### Provide & Inject the Service
+
+Provide an instance of the `ReactiveState` token & inject it in the component.
+
+The interface for the state should be
 
 ```ts
-// state.service.ts
+{
+  favorites: Record<string, MovieModel>;
+  favoritesLoading: Record<string, boolean>;
+  movies: TMDBMovieModel[];
+}
+```
 
-class LocalState<T> {
-  
-  private effects$ = new Subject<Observable<unknown>>();
-  
-  constructor() {
-    /**/
-    this.effects$.pipe(mergeAll(), takeUntilDestroyed()).subscribe()
-  }
-  
-  register(effect$: Observable<unknown>) {
-    this.effects$.next(effect$);
-  }
+<details>
+  <summary>ReactiveState Provider</summary>
+
+```ts
+// movie-list-page.component.ts
+
+@Component({
+  /**/,
+  providers:
+[ReactiveState]
+})
+
+export class MovieListPageComponent {
+  private state = inject<ReactiveState<{
+    favorites: Record<string, MovieModel>;
+    favoritesLoading: Record<string, boolean>;
+    movies: TMDBMovieModel[];
+  }>>(ReactiveState);
 }
 ```
 
 </details>
 
-### Multicasting: Choose your fighter
+#### Set initial State
 
-<details>
-  <summary>Multicasted State</summary>
+The first thing you want to do is setting an initial state of
 
 ```ts
-// state.service.ts
+{
+  favoritesLoading: {}
+,
+  favorites: {}
+,
+}
+```
 
-class LocalState<T> {
-  private state$ = this.slices$.pipe(
-    map(coerceObservable),
-    mergeAll(),
-    scan((state, slice) => ({
-      ...state,
-      ...slice
-    }), {} as T),
-    /* ADD MULTICASTING HERE */
-    share({
-      connector: () => new ReplaySubject(1),
-      resetOnRefCountZero: true
-    })
+<details>
+  <summary>Initial State</summary>
+
+```ts
+// movie-list-page.component.ts
+
+constructor()
+{
+  this.state.set({
+    favoritesLoading: {},
+    favorites: {},
+  });
+}
+```
+
+</details>
+
+#### Connect movies & favorites
+
+Now we can start populating our state with values.
+Go ahead to connect the paginated movie$ stream to the `movie` key of your state.
+Also, instead of having a `favoritesMap$: BehaviorSubject`, populate the `favorites` key of your state with
+the `movieService.favoriteMovies()` observable.
+
+<details>
+  <summary>Connect Movie</summary>
+
+```ts
+// movie-list-page.component.ts
+
+constructor()
+{
+  /**/
+  this.state.connect(
+    'movies',
+    this.activatedRoute.params.pipe(
+      switchMap(params => {
+        if (params['category']) {
+          return this.paginate((page) =>
+            this.movieService.getMovieList(params['category'], page)
+          );
+        } else {
+          return this.paginate((page) =>
+            this.movieService.getMoviesByGenre(params['id'], page)
+          );
+        }
+      })
+    )
+  );
+  
+  this.state.connect('favorites', this.movieService.getFavoriteMovies().pipe(
+    map(favorites => toDictionary(favorites, 'id'))
+  ));
+}
+```
+
+</details>
+
+#### Handle Updates & favoritesLoading
+
+The final piece of state connection is the favoritesLoadingMap. By looking at the subscription from before, you will notice
+we are updating two different subjects: `favoritesLoadingMap$` and `favoritesMap$`.
+Instead of connecting a single key, we now want to connect the slice `{ favorites, favoritesLoading }`.
+
+
+<details>
+  <summary>Handle Updates & favoritesLoading</summary>
+
+```ts
+// movie-list-page.component.ts
+
+constructor()
+{
+  /**/
+  this.state.connect(
+    this.toggleFavorite$.pipe(
+      groupBy(movie => movie.id),
+      mergeMap(movie$ => {
+        return movie$.pipe(
+          exhaustMap(movie => {
+            return this.movieService.toggleFavorite(movie).pipe(
+              map(isFavorite => {
+                const favoritesLoading = { ...this.state.get().favoritesLoading, [movie.id]: false };
+                if (isFavorite) {
+                  return {
+                    favoritesLoading,
+                    favorites: {
+                      ...this.state.get().favorites,
+                      [movie.id]: movie
+                    }
+                  };
+                }
+                const favoriteMap = {
+                  ...this.state.get().favorites
+                };
+                delete favoriteMap[movie.id];
+                return {
+                  favorites: favoriteMap,
+                  favoritesLoading: { ...this.state.get().favoritesLoading, [movie.id]: false }
+                };
+              }),
+              startWith({
+                favoritesLoading: { ...this.state.get().favoritesLoading, [movie.id]: true }
+              })
+            );
+          })
+        );
+      })
+    )
   );
 }
 ```
 
 </details>
+
+#### Register Side Effect
+
+We can also use the `hold` method in order to register our side alerting side effect.
+
+<details>
+
+  <summary>Register alert side effect</summary>
+
+```ts
+// movie-list-page.component.ts
+
+constructor() {
+  this.state.register(
+    this.toggleFavorite$.pipe(
+      groupBy(movie => movie.id),
+      mergeMap(movie$ => movie$.pipe(
+        exhaustMap(
+          movie => this.state.select('favoritesLoading').pipe(
+            filter(favoritesLoading => !favoritesLoading[movie.id]),
+            tap(() => alert('movie updated')),
+            take(1)
+          )
+        )
+      )),
+    )
+  );
+}
+
+```
+</details>
+
+#### Read from state
+
+And finally we can remove all of the `BehaviorSubjects` and replace our reads with the `select` API of our reactive state implementation.
+
+<details>
+  <summary>Read from state with select</summary>
+
+```ts
+// movie-list-page.component.ts
+
+readonly movies$ = this.state.select('movies');
+readonly favoritesMap$ = this.state.select('favorites');
+readonly favoritesLoadingMap$ = this.state.select('favoritesLoading');
+
+```
+</details>
+
+AMAZING!!!! Run your application and see if everything is working as expected.
+
+We didn't put any new "feature" into the application, but I hope you can feel and experience the improved developer experience
+when managing reactive component states.
 
 ## Bonus: RxState
 
@@ -311,7 +546,7 @@ As stated before, we have implemented a baby-version of a production ready react
 Luckily, there is an actual battle tested and production ready version already available which shares basically the very same API as you have
 implemented before.
 
-If you like, you can go ahead an try out `@rx-angular/state`. You could use it the very same way as we implemented before, or you can also
+If you like, you can go ahead and try out [`@rx-angular/state`](http://www.rx-angular.io/docs/state). You could use it the very same way as we implemented before, or you can also
 try out the new functional API. You'll find an example below.
 
 <details>
@@ -374,10 +609,8 @@ private state = rxState<{
   )
 })
 
-readonly
-favoritesMap$ = this.state.select('favorites');
-readonly
-favoritesLoadingMap$ = this.state.select('favoritesLoading');
+readonly favoritesMap$ = this.state.select('favorites');
+readonly favoritesLoadingMap$ = this.state.select('favoritesLoading');
 
 ```
 
